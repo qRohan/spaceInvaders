@@ -1,0 +1,3 @@
+[submodule "src/i8080"]
+	path = src/i8080
+	url = https://github.com/qRohan/i8080
