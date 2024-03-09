@@ -37,7 +37,7 @@ proc `[]`[I, J, T](mat: array[I, array[J, T]], r: I, c: J): T =
 proc `[]=`[I, J, T](mat: array[I, array[J, T]], r: I, c: J) =
     mat[r][c] = T
 
-proc rb(si: Invaders, address: uint16): byte {.inline.}=
+proc rb(si: Invaders, address: uint16): byte {.inline.} =
     case address:
         of 0 .. pred(0x4000):
             result = si.memory[address]
@@ -46,7 +46,7 @@ proc rb(si: Invaders, address: uint16): byte {.inline.}=
         else:
             result = 0
 
-proc wb(si: Invaders, address: uint16, value: byte) {.inline.}=
+proc wb(si: Invaders, address: uint16, value: byte) {.inline.} =
     case address:
         of 0x2000 .. pred(0x4000):
             si.memory[address] = value
@@ -56,11 +56,11 @@ proc wb(si: Invaders, address: uint16, value: byte) {.inline.}=
 proc port_in(si: Invaders, port: byte): byte =
     result = 0xFF
     case port:
-        of 0:
+        of 0: # 0000pr: INP0 (Mapped in hardware but never used by the code)
             discard
-        of 1:
+        of 1: # 0001pr: INP1
             result = si.port1
-        of 2:
+        of 2: # 0002pr: INP2
             result = si.port2
         of 3:
             result = byte(si.shift_reg.bitsliced((8 - int(si.shift_offset)) .. (15 - int(si.shift_offset))) and 0xFF)
@@ -69,17 +69,23 @@ proc port_in(si: Invaders, port: byte): byte =
 
 proc port_out(si: Invaders, port: byte, value: byte) =
     case port:
-        of 2:
+        of 2: # 0002pw: SHFTAMNT
             si.shift_offset = value and 0x07
-        of 3:
+        of 3: # 0003pw: SOUND1
+            # plays a sound from bank 1
             discard #TODO sound
-        of 4:
+        of 4: # 0004pw: SHFT_DATA
             si.shift_reg = si.shift_reg shr 8
             si.shift_reg = si.shift_reg or (uint16(value) shl 8)
-        of 5:
+        of 5: # 0005pw: SOUND2
+            # plays a sound from bank 2
             discard #TODO sound
-        of 6:
-            discard #TODO soomething
+        of 6: # 0006pw: WATCHDOG
+            # The watchdog checks to see if the system has crashed. 
+            # If the watchdog doesn't receive a read/write request after a 
+            # certain number of clock cycles it resets the whole machine. 
+            # This is external circuitry which is not needed to be implemented
+            discard
         else:
             discard #TODO
 
@@ -147,16 +153,17 @@ proc loadROM*(si: var Invaders, filename: string, startAddr: uint16) =
     var data = collect:
         for character in rom.readAll():
             byte(character)
-    
+
     if len(data) > 0x800:
         raise newException(OSError, "ROM file is too big to fit in memory")
     else:
         for i in 0..<len(data):
             si.memory[startAddr + i.uint16] = data[i]
-        
+
         # si.memory[startAddr..<len(data)] = data
-        
+
     rom.close()
+
 
 proc get_color(px, py: int): tuple[r, g, b: byte] =
     # the screen is 256 * 224 pixels, and is rotated anti-clockwise.
@@ -205,9 +212,8 @@ proc get_color(px, py: int): tuple[r, g, b: byte] =
         else:
             result = (r: 255'u8, g: 255'u8, b: 255'u8) # White
 
+
 # updates the screen buffer in accordance with the VRAM
-
-
 proc updateScreen(si: var Invaders) =
     for i in 0 ..< (SCREEN_HEIGHT * SCREEN_WIDTH div 8):
         let
@@ -230,7 +236,7 @@ proc updateScreen(si: var Invaders) =
                     (r, g, b) = (255.byte, 255.byte, 255.byte)
                 else:
                     (r, g, b) = get_color(px, py)
-            
+
             let tx = px
             px = py
             py = SCREEN_HEIGHT - tx - 1
@@ -238,7 +244,7 @@ proc updateScreen(si: var Invaders) =
             si.screen_buffer[py][px][0] = r
             si.screen_buffer[py][px][1] = g
             si.screen_buffer[py][px][2] = b
-    
+
     si.updateTexture(si)
 
 
@@ -246,7 +252,7 @@ proc update*(si: var Invaders, ms: int) =
     var count = 0
 
     while count < (ms*CLOCK_SPEED div 1000):
-        var cyc = si.cpu.cycles 
+        var cyc = si.cpu.cycles
         # echo si.cpu.PC
         si.cpu.step()
         var elapsed = si.cpu.cycles - cyc
