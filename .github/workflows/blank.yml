@@ -28,7 +28,9 @@ jobs:
           submodules: recursive
       - uses: iffy/install-nim@v5
       - run: nimble install -y
-      - run: nimble test
+      - run: |
+          sudo apt-get update
+          sudo apt-get install -y mingw-w64
 
       # create linux release
       - name: Linux build
@@ -37,12 +39,25 @@ jobs:
         with:
           name: spaceInvaders.out
           path: spaceInvaders
-      # Runs a single command using the runners shell
-      - name: Run a one-line script
-        run: echo Hello, world!
-
-      # Runs a set of commands using the runners shell
-      - name: Run a multi-line script
-        run: |
-          echo Add other actions to build,
-          echo test, and deploy your project.
+      
+      # create windows release
+      - name: Windows build
+        run: nimble build -d:release -d:mingw
+      - uses: dsaltares/fetch-gh-release-asset@master
+        with:
+          repo: 'libsdl-org/SDL'
+          regex: true
+          file: '.*win32-x64.zip'
+      - uses: dsaltares/extract-gh-release-asset@master
+        with:
+          repo: 'libsdl-org/SDL_mixer'
+          regex: true
+          file: '.*win32-x64.zip'
+      - run: |
+          unzip -j SDL2-2.0.14-win32-x64.zip "in/archive/SDL2.dll"
+          unzip -j SDL2_mixer-2.0.4-win32-x64.zip "in/archive/SDL2_mixer.dll"
+          zip spaceInvaders-win32-x64.zip spaceInvaders.exe SDL2.dll SDL2_mixer.dll
+      - uses: actions/upload-artifact@v4
+        with:
+          name: spaceInvaders-win32-x64.zip
+          path: spaceInvaders
