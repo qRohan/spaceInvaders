@@ -33,7 +33,7 @@ jobs:
       # create linux release
       - name: Linux build
         run: nimble build -d:release
-      - uses: actions/upload-artiact@v4
+      - uses: actions/upload-artifact@v4
         with:
           name: spaceInvaders.out
           path: spaceInvaders
