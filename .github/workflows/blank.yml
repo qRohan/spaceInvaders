@@ -48,11 +48,13 @@ jobs:
           repo: 'libsdl-org/SDL'
           regex: true
           file: '.*win32-x64.zip'
+          target: "./"
       - uses: dsaltares/fetch-gh-release-asset@master
         with:
           repo: 'libsdl-org/SDL_mixer'
           regex: true
           file: '.*win32-x64.zip'
+          target: "./"
       - run: |
           ls -la
           unzip -j SDL2-2.0.14-win32-x64.zip "in/archive/SDL2.dll"
