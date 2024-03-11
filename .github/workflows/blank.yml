@@ -63,4 +63,4 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: spaceInvaders-win32-x64.zip
-          path: spaceInvaders
+          path: spaceInvaders-win32-x64.zip
