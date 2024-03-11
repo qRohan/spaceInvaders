@@ -2,7 +2,7 @@ import std/bitops
 import std/strformat
 import std/sugar
 
-import sdl2
+import sdl2/mixer
 
 import i8080/i8080
 
@@ -16,6 +16,18 @@ const
     VRAM_ADDR = 0x2400
 
 type
+    SoundsName = enum
+        UFO_MOVE_SND,
+        SHOOT_LASER_SND,
+        PLAYER_DEATH_SND,
+        INVADER_DEATH_SND,
+        FLEET1_SND,
+        FLEET2_SND,
+        FLEET3_SND,
+        FLEET4_SND,
+        UFO_HIT_SND,
+        EXTRA_LIFE_SND
+
     Invaders* = ref object
         cpu: CPU
         memory: array[0x4000, byte]
@@ -31,11 +43,15 @@ type
         screen_buffer*: array[SCREEN_HEIGHT, array[SCREEN_WIDTH, array[3, byte]]]
         updateTexture*: proc (si: Invaders)
 
+        sounds: array[SoundsName, ChunkPtr]
+
 proc `[]`[I, J, T](mat: array[I, array[J, T]], r: I, c: J): T =
     return mat[r][c]
 
 proc `[]=`[I, J, T](mat: array[I, array[J, T]], r: I, c: J) =
     mat[r][c] = T
+
+proc play_sound(si: Invaders, bank: byte)
 
 proc rb(si: Invaders, address: uint16): byte {.inline.} =
     case address:
@@ -73,13 +89,13 @@ proc port_out(si: Invaders, port: byte, value: byte) =
             si.shift_offset = value and 0x07
         of 3: # 0003pw: SOUND1
             # plays a sound from bank 1
-            discard #TODO sound
+            play_sound(si, 1)
         of 4: # 0004pw: SHFT_DATA
             si.shift_reg = si.shift_reg shr 8
             si.shift_reg = si.shift_reg or (uint16(value) shl 8)
         of 5: # 0005pw: SOUND2
             # plays a sound from bank 2
-            discard #TODO sound
+            play_sound(si, 2)
         of 6: # 0006pw: WATCHDOG
             # The watchdog checks to see if the system has crashed. 
             # If the watchdog doesn't receive a read/write request after a 
@@ -141,9 +157,22 @@ proc init_cpu(si: Invaders) =
     # bit 7 = DIP7 Coin info displayed in demo screen 0=ON
     si.port2 = 0
 
+proc load_sounds(si: Invaders) =
+    si.sounds[UFO_MOVE_SND]= loadWAV("sounds/0.wav")
+    si.sounds[SHOOT_LASER_SND]= loadWAV("sounds/1.wav")
+    si.sounds[PLAYER_DEATH_SND]= loadWAV("sounds/2.wav")
+    si.sounds[INVADER_DEATH_SND]= loadWAV("sounds/3.wav")
+    si.sounds[FLEET1_SND]= loadWAV("sounds/4.wav")
+    si.sounds[FLEET2_SND]= loadWAV("sounds/5.wav")
+    si.sounds[FLEET3_SND]= loadWAV("sounds/6.wav")
+    si.sounds[FLEET4_SND]= loadWAV("sounds/7.wav")
+    si.sounds[UFO_HIT_SND]= loadWAV("sounds/8.wav")
+    si.sounds[EXTRA_LIFE_SND]= loadWAV("sounds/9.wav")
+
 proc newInvaders*(): Invaders =
     result = Invaders()
     result.init_cpu()
+    result.load_sounds()
 
 proc loadROM*(si: var Invaders, filename: string, startAddr: uint16) =
     var rom = open(filename, fmRead)
@@ -164,6 +193,49 @@ proc loadROM*(si: var Invaders, filename: string, startAddr: uint16) =
 
     rom.close()
 
+var ufo_move_channel: cint = -1
+proc play_sound(si: Invaders, bank: byte) =
+    var 
+        data = si.cpu.reg.A    
+    case bank:
+        of 1:
+            if data.testBit(0) and not si.last_out_port3.testBit(0):
+                if ufo_move_channel != -1 and playing(ufo_move_channel) != 0:
+                    discard
+                else:
+                    ufo_move_channel = playChannel(-1, si.sounds[UFO_MOVE_SND], -1)
+            elif not data.testBit(0) and si.last_out_port3.testBit(0):
+                if ufo_move_channel != -1 and playing(ufo_move_channel) != 0:
+                    discard haltChannel(ufo_move_channel)
+            
+            if data != si.last_out_port3:
+                if (data.testBit(1) and not si.last_out_port3.testBit(1)):
+                    discard playChannel(-1, si.sounds[SHOOT_LASER_SND], 0)
+                if (data.testBit(2) and not si.last_out_port3.testBit(2)):
+                    discard playChannel(-1, si.sounds[PLAYER_DEATH_SND], 0)
+                if (data.testBit(3) and not si.last_out_port3.testBit(3)):
+                    discard playChannel(-1, si.sounds[INVADER_DEATH_SND], 0)
+                if (data.testBit(4) and not si.last_out_port3.testBit(4)):
+                    discard playChannel(-1, si.sounds[EXTRA_LIFE_SND], 0)
+                
+                si.last_out_port3 = data
+        of 2:
+            if data != si.last_out_port5:
+                if (data.testBit(0) and not si.last_out_port5.testBit(0)):
+                    discard playChannel(-1, si.sounds[FLEET1_SND], 0)
+                if (data.testBit(1) and not si.last_out_port5.testBit(1)):
+                    discard playChannel(-1, si.sounds[FLEET2_SND], 0)
+                if (data.testBit(2) and not si.last_out_port5.testBit(2)):
+                    discard playChannel(-1, si.sounds[FLEET3_SND], 0)
+                if (data.testBit(3) and not si.last_out_port5.testBit(3)):
+                    discard playChannel(-1, si.sounds[FLEET4_SND], 0)
+                if (data.testBit(4) and not si.last_out_port5.testBit(4)):
+                    discard haltChannel(ufo_move_channel)
+                    discard playChannel(-1, si.sounds[UFO_HIT_SND], 0)
+                
+                si.last_out_port5 = data
+        else:
+            discard
 
 proc get_color(px, py: int): tuple[r, g, b: byte] =
     # the screen is 256 * 224 pixels, and is rotated anti-clockwise.

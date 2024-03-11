@@ -1,20 +1,15 @@
 import std/strformat
 import std/bitops
+import std/envvars
 
 import sdl2
 import sdl2/gamecontroller
 import sdl2/joystick
+import sdl2/mixer
 
 import i8080/i8080
 
 import ./machine
-
-var si = newInvaders()
-
-si.loadROM("roms/invaders.h", 0x0000)
-si.loadROM("roms/invaders.g", 0x0800)
-si.loadROM("roms/invaders.f", 0x1000)
-si.loadROM("roms/invaders.e", 0x1800)
 
 var
     window: WindowPtr
@@ -28,7 +23,17 @@ var
     SCALE: cint = 2
 
 sdlr = sdl2.init(INIT_EVERYTHING)
-assert sdlr == SdlSuccess
+assert sdlr == SdlSuccess ,fmt"Unable to init sdl: {getError()}"
+
+sdlr = SDL_Return(openAudio(44100, MIX_DEFAULT_FORMAT, 2, 1024))
+assert sdlr == SdlSuccess ,fmt"Unable to open audio: {getError()}"
+
+var si = newInvaders()
+
+si.loadROM("roms/invaders.h", 0x0000)
+si.loadROM("roms/invaders.g", 0x0800)
+si.loadROM("roms/invaders.f", 0x1000)
+si.loadROM("roms/invaders.e", 0x1800)
 
 window = createWindow("Space Invaders", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, SCREEN_WIDTH * SCALE, SCREEN_HEIGHT * SCALE, SDL_WINDOW_SHOWN)
 assert not window.isNil
