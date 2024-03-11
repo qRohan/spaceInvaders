@@ -33,6 +33,10 @@ jobs:
       # create linux release
       - name: Linux build
         run: nimble build -d:release
+      - uses: actions/upload-artiact@v4
+        with:
+          name: spaceInvaders.out
+          path: spaceInvaders
       # Runs a single command using the runners shell
       - name: Run a one-line script
         run: echo Hello, world!
