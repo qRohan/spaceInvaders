@@ -57,8 +57,8 @@ jobs:
           target: "./"
       - run: |
           ls -la
-          unzip -j SDL2-2.0.14-win32-x64.zip "in/archive/SDL2.dll"
-          unzip -j SDL2_mixer-2.0.4-win32-x64.zip "in/archive/SDL2_mixer.dll"
+          unzip -j SDL2-*.zip "SDL2.dll"
+          unzip -j SDL2_mixer*.zip "SDL2_mixer.dll"
           zip spaceInvaders-win32-x64.zip spaceInvaders.exe SDL2.dll SDL2_mixer.dll
       - uses: actions/upload-artifact@v4
         with:
